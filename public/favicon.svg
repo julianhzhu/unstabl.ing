@@ -1,0 +1,15 @@
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="32" height="32" fill="#000000"/>
+  
+  <!-- Terminal-style prompt -->
+  <text x="6" y="22" font-family="monospace" font-size="16" fill="#60a5fa">></text>
+  
+  <!-- Cursor blink effect -->
+  <rect x="18" y="18" width="2" height="4" fill="#60a5fa">
+    <animate attributeName="opacity" values="1;0;1" dur="1s" repeatCount="indefinite"/>
+  </rect>
+  
+  <!-- Subtle border -->
+  <rect x="1" y="1" width="30" height="30" stroke="#3b82f6" stroke-width="1" fill="none"/>
+</svg>

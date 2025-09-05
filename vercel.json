@@ -1,0 +1,17 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "package.json",
+      "use": "@vercel/next"
+    }
+  ],
+  "env": {
+    "NEXTAUTH_URL": "@nextauth_url",
+    "NEXTAUTH_SECRET": "@nextauth_secret",
+    "MONGODB_URI": "@mongodb_uri",
+    "TWITTER_CLIENT_ID": "@twitter_client_id",
+    "TWITTER_CLIENT_SECRET": "@twitter_client_secret"
+  }
+}
+
