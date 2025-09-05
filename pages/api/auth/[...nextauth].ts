@@ -52,7 +52,7 @@ export default async function auth(req: NextApiRequest, res: NextApiResponse) {
               // New user - create with Twitter data
               (user as any).twitterId = account.providerAccountId;
               (user as any).authProvider = account.provider;
-              (user as any).consumedInviteCode = true; // Auto-approve for now
+              (user as any).consumedInviteCode = true;
 
               return true;
             } catch (error) {
