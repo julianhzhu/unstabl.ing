@@ -17,13 +17,17 @@ export default async function handler(
         return res.status(400).json({ error: "Key and user data required" });
       }
 
-      // Store or update user data with the key
+      // Store or update user data with the key (merge with existing data)
       await UserKey.findOneAndUpdate(
         { key },
         {
           key,
-          userData,
-          lastAccessed: new Date(),
+          $set: {
+            "userData.id": userData.id,
+            "userData.name": userData.name,
+            "userData.key": userData.key,
+            lastAccessed: new Date(),
+          },
         },
         { upsert: true, new: true }
       );

@@ -75,4 +75,3 @@ const User: Model<IUser> =
   mongoose.models?.user || mongoose.model<IUser>("user", userSchema);
 
 export { User };
-

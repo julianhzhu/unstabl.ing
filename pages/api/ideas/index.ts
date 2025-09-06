@@ -2,6 +2,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { runConnectDB } from "@/lib/db";
 import { Idea } from "@/models/Idea";
 import withAuth, { ModifiedReqWithToken } from "@/lib/withAuth";
+import { sendReplyNotification } from "@/lib/notifications";
 
 // Only require auth for POST requests
 export default async function handler(
@@ -136,6 +137,15 @@ export default async function handler(
           await Idea.findByIdAndUpdate(parentId, {
             $push: { replies: idea._id },
           });
+
+          // Send reply notifications
+          sendReplyNotification(
+            parentId,
+            idea._id.toString(),
+            idea.author.userId,
+            idea.author.name || idea.author.twitterHandle || "Anonymous",
+            idea.content
+          ).catch(console.error); // Don't wait for notifications to complete
         } else {
           console.error(`Parent idea with ID ${parentId} not found`);
         }

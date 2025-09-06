@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useSession, signIn, signOut } from "next-auth/react";
 import Head from "next/head";
 import { IIdea } from "@/models/Idea";
+import EmailSettings from "@/components/EmailSettings";
 
 interface IdeaWithReplies extends Omit<IIdea, "replies"> {
   replies?: IdeaWithReplies[];
@@ -25,6 +26,7 @@ export default function Home() {
   const [showKeyModal, setShowKeyModal] = useState(false);
   const [showRecoverModal, setShowRecoverModal] = useState(false);
   const [showUserModal, setShowUserModal] = useState(false);
+  const [showEmailSettings, setShowEmailSettings] = useState(false);
   const [recoverKey, setRecoverKey] = useState("");
 
   // Fallback copy function for older browsers
@@ -654,6 +656,16 @@ export default function Home() {
                 >
                   {">"} Manage Recovery Key
                 </button>
+
+                <button
+                  onClick={() => {
+                    setShowUserModal(false);
+                    setShowEmailSettings(true);
+                  }}
+                  className="w-full bg-black border border-blue-600 text-blue-400 font-mono py-2 px-4 hover:bg-blue-600 hover:text-white transition-all duration-200"
+                >
+                  {">"} Email & Notifications
+                </button>
               </div>
 
               <button
@@ -872,6 +884,14 @@ export default function Home() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Email Settings Modal */}
+      {showEmailSettings && anonymousUser?.key && (
+        <EmailSettings
+          userKey={anonymousUser.key}
+          onClose={() => setShowEmailSettings(false)}
+        />
       )}
     </div>
   );
