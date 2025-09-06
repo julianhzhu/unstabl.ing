@@ -295,6 +295,101 @@ export default function Home() {
     try {
       if (!anonymousUser) return;
 
+      // Helper function to update vote for any item (idea or reply)
+      const updateVoteForItem = (item: any, currentVote: any) => {
+        let newVote: "stable" | "unstable" | null = vote;
+
+        // If clicking the same vote, remove it (toggle off)
+        if (currentVote === vote) {
+          newVote = null;
+        }
+
+        // Calculate new vote counts
+        let newStableVotes = [...(item.votes?.stable || [])];
+        let newUnstableVotes = [...(item.votes?.unstable || [])];
+        let newScore = item.score || 0;
+
+        // Remove current vote first
+        if (currentVote === "stable") {
+          newStableVotes = newStableVotes.filter(
+            (id: string) => id !== anonymousUser.id
+          );
+          newScore += 1; // Removing stable vote increases score
+        } else if (currentVote === "unstable") {
+          newUnstableVotes = newUnstableVotes.filter(
+            (id: string) => id !== anonymousUser.id
+          );
+          newScore -= 1; // Removing unstable vote decreases score
+        }
+
+        // Add new vote if not toggling off
+        if (newVote === "stable") {
+          if (!newStableVotes.includes(anonymousUser.id)) {
+            newStableVotes.push(anonymousUser.id);
+          }
+          newScore -= 1; // Adding stable vote decreases score
+        } else if (newVote === "unstable") {
+          if (!newUnstableVotes.includes(anonymousUser.id)) {
+            newUnstableVotes.push(anonymousUser.id);
+          }
+          newScore += 1; // Adding unstable vote increases score
+        }
+
+        return {
+          ...item,
+          votes: {
+            stable: newStableVotes,
+            unstable: newUnstableVotes,
+          },
+          score: newScore,
+          userVote: newVote,
+        };
+      };
+
+      // Helper function to recursively update replies
+      const updateReplies = (replies: any[]): any[] => {
+        return replies.map((reply) => {
+          if (reply._id === ideaId) {
+            const currentVote = reply.votes?.stable?.includes(anonymousUser.id)
+              ? "stable"
+              : reply.votes?.unstable?.includes(anonymousUser.id)
+              ? "unstable"
+              : null;
+            return updateVoteForItem(reply, currentVote);
+          }
+          // Recursively check nested replies
+          if (reply.replies && reply.replies.length > 0) {
+            return {
+              ...reply,
+              replies: updateReplies(reply.replies),
+            };
+          }
+          return reply;
+        });
+      };
+
+      // Optimistic update - update UI immediately
+      setIdeas((prevIdeas) =>
+        prevIdeas.map((idea) => {
+          if (idea._id === ideaId) {
+            // This is a main idea
+            const currentVote = idea.userVote;
+            return updateVoteForItem(idea, currentVote);
+          } else if (idea.replies && idea.replies.length > 0) {
+            // Check if the vote is for a reply within this idea
+            const updatedReplies = updateReplies(idea.replies);
+            if (updatedReplies !== idea.replies) {
+              return {
+                ...idea,
+                replies: updatedReplies,
+              };
+            }
+          }
+          return idea;
+        })
+      );
+
+      // Make API call
       const response = await fetch(`/api/ideas/${ideaId}/vote`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -307,17 +402,25 @@ export default function Home() {
       });
 
       if (response.ok) {
-        // Instead of complex state updates, just refresh the data from server
-        // This ensures we get the correct state and avoid data corruption
-        await fetchIdeas();
-
         // Track vote in localStorage
         const votes = JSON.parse(localStorage.getItem("usduc_votes") || "{}");
-        votes[ideaId] = vote;
+        const currentVote = ideas.find((i) => i._id === ideaId)?.userVote;
+        const newVote = currentVote === vote ? null : vote;
+
+        if (newVote) {
+          votes[ideaId] = newVote;
+        } else {
+          delete votes[ideaId];
+        }
         localStorage.setItem("usduc_votes", JSON.stringify(votes));
+      } else {
+        // Revert optimistic update on error
+        await fetchIdeas();
       }
     } catch (error) {
       console.error("Error voting:", error);
+      // Revert optimistic update on error
+      await fetchIdeas();
     }
   };
 
