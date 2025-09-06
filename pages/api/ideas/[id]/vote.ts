@@ -3,6 +3,7 @@ import { runConnectDB } from "@/lib/db";
 import { Idea } from "@/models/Idea";
 import withAuth, { ModifiedReqWithToken } from "@/lib/withAuth";
 import { sendVoteNotification } from "@/lib/notifications";
+import { updateIdeaScores } from "@/lib/sortingAlgorithms";
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
@@ -82,6 +83,14 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     }
 
     const updatedIdea = addResult || (await Idea.findById(id));
+
+    // Update smart scores after vote change
+    if (updatedIdea) {
+      const newScores = updateIdeaScores(updatedIdea);
+      await Idea.findByIdAndUpdate(id, {
+        $set: newScores,
+      });
+    }
 
     // Send notification if this is a new vote (not removing a vote)
     if (isNewVote) {

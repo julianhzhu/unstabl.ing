@@ -3,6 +3,11 @@ import { runConnectDB } from "@/lib/db";
 import { Idea } from "@/models/Idea";
 import withAuth, { ModifiedReqWithToken } from "@/lib/withAuth";
 import { sendReplyNotification } from "@/lib/notifications";
+import {
+  autoCategorizeIdea,
+  updateIdeaScores,
+  calculateHotScore,
+} from "@/lib/sortingAlgorithms";
 
 // Only require auth for POST requests
 export default async function handler(
@@ -14,7 +19,12 @@ export default async function handler(
     try {
       await runConnectDB();
 
-      const { page = "1", limit = "20", sort = "score", parentId } = req.query;
+      const {
+        page = "1",
+        limit = "20",
+        sort = "trending",
+        parentId,
+      } = req.query;
       const pageNum = parseInt(page as string);
       const limitNum = parseInt(limit as string);
       const skip = (pageNum - 1) * limitNum;
@@ -26,22 +36,55 @@ export default async function handler(
         query.parentId = { $exists: false }; // Only top-level ideas
       }
 
-      let sortQuery: any = {};
-      if (sort === "score") {
-        sortQuery = { score: -1, createdAt: -1 };
-      } else if (sort === "new") {
-        sortQuery = { createdAt: -1 };
-      } else if (sort === "controversial") {
-        sortQuery = {
-          $expr: { $abs: { $subtract: ["$votes.stable", "$votes.unstable"] } },
-        };
-      }
+      let ideas: any[] = [];
 
-      const ideas = await Idea.find(query)
-        .sort(sortQuery)
-        .skip(skip)
-        .limit(limitNum)
-        .lean();
+      if (sort === "trending") {
+        // For trending, use a smart approach:
+        // 1. Get recent ideas (last 7 days) with good engagement
+        // 2. Calculate real-time scores for this subset
+        // 3. This gives us trending without fetching everything
+
+        const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+        const trendingQuery = {
+          ...query,
+          createdAt: { $gte: sevenDaysAgo },
+          $or: [
+            { "votes.stable": { $exists: true, $ne: [] } },
+            { "votes.unstable": { $exists: true, $ne: [] } },
+            { replies: { $exists: true, $ne: [] } },
+          ],
+        };
+
+        const trendingIdeas = await Idea.find(trendingQuery)
+          .sort({ createdAt: -1 })
+          .limit(200) // Reasonable limit for trending calculation
+          .lean();
+
+        // Calculate real-time hot scores
+        const ideasWithScores = trendingIdeas
+          .map((idea) => ({
+            ...idea,
+            realTimeHotScore: calculateHotScore(idea),
+          }))
+          .sort((a, b) => b.realTimeHotScore - a.realTimeHotScore);
+
+        // Paginate the results
+        ideas = ideasWithScores.slice(skip, skip + limitNum);
+      } else {
+        // For other sorts, use database sorting
+        let sortQuery: any = {};
+        if (sort === "new") {
+          sortQuery = { createdAt: -1 };
+        } else if (sort === "controversial") {
+          sortQuery = { controversialScore: -1, createdAt: -1 };
+        }
+
+        ideas = await Idea.find(query)
+          .sort(sortQuery)
+          .skip(skip)
+          .limit(limitNum)
+          .lean();
+      }
 
       // Manually populate replies
       const populateReplies = async (idea: any): Promise<any> => {
@@ -110,10 +153,14 @@ export default async function handler(
           .json({ error: "Content too long (max 600 chars)" });
       }
 
+      // Auto-categorize the idea
+      const category = autoCategorizeIdea(title, content, tags);
+
       const idea = new Idea({
         title,
         content,
         tags,
+        category,
         parentId,
         author: author || {
           userId: "anonymous",
@@ -126,6 +173,9 @@ export default async function handler(
           unstable: [],
         },
         score: 0,
+        hotScore: 0,
+        controversialScore: 0,
+        engagementScore: 0,
       });
 
       await idea.save();

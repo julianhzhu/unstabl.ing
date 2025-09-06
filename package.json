@@ -13,7 +13,8 @@
     "build:analyze": "ANALYZE=true next build",
     "postbuild": "next-sitemap",
     "clean": "rm -rf .next out",
-    "preview": "next build && next start"
+    "preview": "next build && next start",
+    "create-indexes": "npx ts-node scripts/createIndexes.ts"
   },
   "dependencies": {
     "@next-auth/mongodb-adapter": "^1.1.3",

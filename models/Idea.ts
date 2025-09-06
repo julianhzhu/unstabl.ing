@@ -21,6 +21,10 @@ export interface IIdea {
   score: number; // Calculated score (stable votes - unstable votes)
   tags: string[];
   status: "active" | "implemented" | "rejected" | "meme";
+  category?: "tech" | "crypto" | "general"; // Auto-categorized but not used for filtering
+  hotScore?: number; // Reddit-style hot score
+  controversialScore?: number; // Controversial score
+  engagementScore?: number; // Reply count + vote activity
   parentId?: string; // For threaded comments
   replies: string[]; // Array of reply idea IDs
   createdAt?: Date;
@@ -61,6 +65,23 @@ export const ideaSchema = new Schema<IIdea, Model<IIdea>, IIdea>(
       type: String,
       enum: ["active", "implemented", "rejected", "meme"],
       default: "active",
+    },
+    category: {
+      type: String,
+      enum: ["tech", "crypto", "general"],
+      default: "general",
+    },
+    hotScore: {
+      type: Number,
+      default: 0,
+    },
+    controversialScore: {
+      type: Number,
+      default: 0,
+    },
+    engagementScore: {
+      type: Number,
+      default: 0,
     },
     parentId: String, // For threaded comments
     replies: [String], // Array of reply idea IDs

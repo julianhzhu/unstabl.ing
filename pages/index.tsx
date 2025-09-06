@@ -15,9 +15,11 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [showPostForm, setShowPostForm] = useState(false);
   const [newIdea, setNewIdea] = useState({ title: "", content: "", tags: [] });
-  const [sortBy, setSortBy] = useState("score");
+  const [sortBy, setSortBy] = useState("trending");
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [loadMoreRef, setLoadMoreRef] = useState<HTMLDivElement | null>(null);
   const [anonymousUser, setAnonymousUser] = useState<{
     id: string;
     name: string;
@@ -185,12 +187,75 @@ export default function Home() {
 
   useEffect(() => {
     if (status !== "loading" && anonymousUser) {
-      fetchIdeas();
+      if (page === 1) {
+        fetchIdeas();
+      } else {
+        loadMoreIdeas();
+      }
     }
   }, [sortBy, page, status, anonymousUser]);
 
+  // Intersection Observer for infinite scroll
+  useEffect(() => {
+    if (!loadMoreRef || !hasMore || loadingMore) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setPage((prev) => prev + 1);
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    observer.observe(loadMoreRef);
+
+    return () => observer.disconnect();
+  }, [loadMoreRef, hasMore, loadingMore]);
+
   const fetchIdeas = async () => {
     try {
+      setLoading(true);
+      const response = await fetch(`/api/ideas?page=1&sort=${sortBy}&limit=10`);
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      // Add userVote information to each idea
+      const ideasWithUserVotes = (data.ideas || []).map((idea: any) => {
+        if (!anonymousUser) {
+          return { ...idea, userVote: null };
+        }
+
+        const hasVotedStable = idea.votes.stable.includes(anonymousUser.id);
+        const hasVotedUnstable = idea.votes.unstable.includes(anonymousUser.id);
+
+        let userVote: "stable" | "unstable" | null = null;
+        if (hasVotedStable) userVote = "stable";
+        else if (hasVotedUnstable) userVote = "unstable";
+
+        return { ...idea, userVote };
+      });
+
+      setIdeas(ideasWithUserVotes);
+      setHasMore(data.pagination?.page < data.pagination?.pages);
+      setPage(1);
+    } catch (error) {
+      console.error("Error fetching ideas:", error);
+      setIdeas([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadMoreIdeas = async () => {
+    if (loadingMore || !hasMore) return;
+
+    try {
+      setLoadingMore(true);
       const response = await fetch(
         `/api/ideas?page=${page}&sort=${sortBy}&limit=10`
       );
@@ -217,18 +282,12 @@ export default function Home() {
         return { ...idea, userVote };
       });
 
-      if (page === 1) {
-        setIdeas(ideasWithUserVotes);
-      } else {
-        setIdeas((prev) => [...prev, ...ideasWithUserVotes]);
-      }
-
+      setIdeas((prev) => [...prev, ...ideasWithUserVotes]);
       setHasMore(data.pagination?.page < data.pagination?.pages);
     } catch (error) {
-      console.error("Error fetching ideas:", error);
-      setIdeas([]);
+      console.error("Error loading more ideas:", error);
     } finally {
-      setLoading(false);
+      setLoadingMore(false);
     }
   };
 
@@ -449,33 +508,37 @@ export default function Home() {
 
         {/* Sort Controls */}
         <div className="flex justify-center mb-6">
-          <div className="flex space-x-2">
-            <button
-              onClick={() => {
-                setSortBy("score");
-                setPage(1);
-              }}
-              className={`font-mono text-sm px-4 py-2 border transition-all duration-200 ${
-                sortBy === "score"
-                  ? "bg-blue-600 text-white border-blue-600"
-                  : "bg-black text-blue-400 border-blue-600 hover:bg-blue-600 hover:text-white"
-              }`}
-            >
-              {">"} sort --hot
-            </button>
-            <button
-              onClick={() => {
-                setSortBy("new");
-                setPage(1);
-              }}
-              className={`font-mono text-sm px-4 py-2 border transition-all duration-200 ${
-                sortBy === "new"
-                  ? "bg-blue-600 text-white border-blue-600"
-                  : "bg-black text-blue-400 border-blue-600 hover:bg-blue-600 hover:text-white"
-              }`}
-            >
-              {">"} sort --new
-            </button>
+          <div className="flex flex-wrap justify-center gap-2">
+            {[
+              {
+                key: "trending",
+                label: "TRENDING",
+                desc: "Hot ideas gaining momentum",
+              },
+              { key: "new", label: "NEW", desc: "Most recent ideas" },
+              {
+                key: "controversial",
+                label: "CONTROVERSIAL",
+                desc: "Debated ideas",
+              },
+            ].map((sort) => (
+              <button
+                key={sort.key}
+                onClick={() => {
+                  setSortBy(sort.key);
+                  setPage(1);
+                  setHasMore(true);
+                }}
+                className={`font-mono text-sm px-4 py-2 border transition-all duration-200 ${
+                  sortBy === sort.key
+                    ? "bg-blue-600 text-white border-blue-600"
+                    : "bg-black text-blue-400 border-blue-600 hover:bg-blue-600 hover:text-white"
+                }`}
+                title={sort.desc}
+              >
+                {sort.label}
+              </button>
+            ))}
           </div>
         </div>
 
@@ -502,15 +565,18 @@ export default function Home() {
           )}
         </div>
 
-        {/* Load More */}
+        {/* Infinite Scroll Trigger */}
         {hasMore && !loading && (
-          <div className="mt-4">
-            <button
-              onClick={() => setPage((prev) => prev + 1)}
-              className="bg-gradient-to-r from-blue-500 to-blue-700 hover:from-blue-600 hover:to-blue-800 text-white font-bold py-2 px-4 rounded-lg transition-colors"
-            >
-              LOAD MORE
-            </button>
+          <div ref={setLoadMoreRef} className="mt-8 text-center py-4">
+            {loadingMore ? (
+              <div className="text-blue-400 font-mono text-sm">
+                Loading more ideas...
+              </div>
+            ) : (
+              <div className="text-gray-500 font-mono text-xs">
+                Scroll down to load more
+              </div>
+            )}
           </div>
         )}
       </div>
