@@ -10,6 +10,12 @@ import { Idea } from "../models/Idea";
 
 async function createIndexes() {
   try {
+    // Only allow in development
+    if (process.env.NODE_ENV !== "development") {
+      console.error("❌ Index creation is only available in development mode");
+      process.exit(1);
+    }
+
     // Connect to MongoDB
     const mongoUri = process.env.MONGODB_URI;
     if (!mongoUri) {
