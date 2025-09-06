@@ -21,20 +21,10 @@ export default async function handler(
     }
 
     // Find user with this verification token
-    console.log("Looking for token:", token);
     const userKeyDoc = await UserKey.findOne({
       "userData.emailVerificationToken": token,
       "userData.emailVerificationExpires": { $gt: new Date() },
     });
-
-    console.log("Found userKeyDoc:", userKeyDoc ? "Yes" : "No");
-    if (userKeyDoc) {
-      console.log(
-        "Token expires at:",
-        userKeyDoc.userData.emailVerificationExpires
-      );
-      console.log("Current time:", new Date());
-    }
 
     if (!userKeyDoc) {
       return res.status(400).json({

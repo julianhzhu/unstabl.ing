@@ -22,11 +22,6 @@ export default async function handler(
         return res.status(404).json({ error: "User not found" });
       }
 
-      console.log(
-        "Notifications API - userKeyDoc:",
-        JSON.stringify(userKeyDoc, null, 2)
-      );
-
       const response = {
         email: userKeyDoc.userData.email,
         emailVerified: userKeyDoc.userData.emailVerified,
@@ -41,10 +36,6 @@ export default async function handler(
         },
       };
 
-      console.log(
-        "Notifications API - response:",
-        JSON.stringify(response, null, 2)
-      );
       res.status(200).json(response);
     } catch (error) {
       console.error("Error fetching notification preferences:", error);

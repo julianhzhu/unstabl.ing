@@ -141,21 +141,12 @@ export default function EmailSettings({
           <h2 className="text-xl font-bold text-blue-400">
             Email & Notifications
           </h2>
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={fetchSettings}
-              className="text-blue-300 hover:text-blue-200 text-sm underline"
-              title="Refresh settings"
-            >
-              🔄
-            </button>
-            <button
-              onClick={onClose}
-              className="text-blue-300 hover:text-blue-200 text-2xl"
-            >
-              ×
-            </button>
-          </div>
+          <button
+            onClick={onClose}
+            className="text-blue-300 hover:text-blue-200 text-2xl"
+          >
+            ×
+          </button>
         </div>
 
         {message && (

@@ -34,8 +34,6 @@ export default async function handler(
       return res.status(404).json({ error: "User not found" });
     }
 
-    console.log("Found userKeyDoc:", JSON.stringify(userKeyDoc, null, 2));
-
     // Check if email is already verified for this user
     if (
       userKeyDoc.userData.email === email &&
@@ -49,10 +47,6 @@ export default async function handler(
     const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
     // Update user with email and verification token
-    console.log("Updating user with key:", key);
-    console.log("Email:", email);
-    console.log("Verification token:", verificationToken);
-    console.log("Expires at:", verificationExpires);
 
     const updateResult = await UserKey.findOneAndUpdate(
       { key },
@@ -66,14 +60,6 @@ export default async function handler(
       },
       { new: true } // Return the updated document
     );
-
-    console.log("Update result:", updateResult ? "Success" : "Failed");
-    if (updateResult) {
-      console.log(
-        "Updated userData:",
-        JSON.stringify(updateResult.userData, null, 2)
-      );
-    }
 
     // Send verification email
     await sendEmailNotification({

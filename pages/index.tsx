@@ -184,14 +184,6 @@ export default function Home() {
   }, [status]);
 
   useEffect(() => {
-    console.log(
-      "useEffect triggered - sortBy:",
-      sortBy,
-      "page:",
-      page,
-      "anonymousUser:",
-      anonymousUser?.id
-    );
     if (status !== "loading" && anonymousUser) {
       fetchIdeas();
     }
@@ -199,21 +191,15 @@ export default function Home() {
 
   const fetchIdeas = async () => {
     try {
-      console.log("Fetching ideas...");
       const response = await fetch(
         `/api/ideas?page=${page}&sort=${sortBy}&limit=10`
       );
-
-      console.log("Response status:", response.status);
-      console.log("Response ok:", response.ok);
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
       const data = await response.json();
-      console.log("Fetched data:", data);
-      console.log("Ideas count:", data.ideas?.length);
 
       // Add userVote information to each idea
       const ideasWithUserVotes = (data.ideas || []).map((idea: any) => {
