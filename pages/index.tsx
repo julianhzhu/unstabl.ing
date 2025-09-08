@@ -404,6 +404,8 @@ export default function Home() {
       if (response.ok) {
         // Track vote in localStorage
         const votes = JSON.parse(localStorage.getItem("usduc_votes") || "{}");
+
+        // Calculate the new vote state (same logic as optimistic update)
         const currentVote = ideas.find((i) => i._id === ideaId)?.userVote;
         const newVote = currentVote === vote ? null : vote;
 
@@ -425,9 +427,63 @@ export default function Home() {
   };
 
   const handleReplyAdded = async (parentId: string, newReply: any) => {
-    // Instead of complex state updates, just refresh the data from server
-    // This ensures we get the correct state and avoid duplicates
-    await fetchIdeas();
+    // Optimistic update - add the new reply to the local state immediately
+    setIdeas((prevIdeas) =>
+      prevIdeas.map((idea) => {
+        if (idea._id === parentId) {
+          // This is a main idea - add reply to its replies array
+          return {
+            ...idea,
+            replies: [...(idea.replies || []), newReply],
+          };
+        } else if (idea.replies && idea.replies.length > 0) {
+          // Check if the reply should be added to a nested reply
+          const updatedReplies = addReplyToNested(
+            idea.replies,
+            parentId,
+            newReply
+          );
+          if (updatedReplies !== idea.replies) {
+            return {
+              ...idea,
+              replies: updatedReplies,
+            };
+          }
+        }
+        return idea;
+      })
+    );
+  };
+
+  // Helper function to recursively add reply to nested structure
+  const addReplyToNested = (
+    replies: any[],
+    parentId: string,
+    newReply: any
+  ): any[] => {
+    return replies.map((reply) => {
+      if (reply._id === parentId) {
+        // Found the parent reply - add the new reply to its replies array
+        return {
+          ...reply,
+          replies: [...(reply.replies || []), newReply],
+        };
+      } else if (reply.replies && reply.replies.length > 0) {
+        // Recursively check nested replies
+        const updatedNestedReplies = addReplyToNested(
+          reply.replies,
+          parentId,
+          newReply
+        );
+        if (updatedNestedReplies !== reply.replies) {
+          return {
+            ...reply,
+            replies: updatedNestedReplies,
+          };
+        }
+      }
+      return reply;
+    });
   };
 
   const handleSubmitIdea = async (e: React.FormEvent) => {
